@@ -60,7 +60,7 @@ jobs:
           exit-code: "0"   # report only; flip to "1" to fail releases on findings
 
       - name: Sync Docker Hub description
-        uses: peter-evans/dockerhub-description@v4
+        uses: peter-evans/dockerhub-description@v5
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
