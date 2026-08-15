@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/silentprior/paperless-paddle-ocr/actions/workflows/ci.yml/badge.svg)](https://github.com/silentprior/paperless-paddle-ocr/actions/workflows/ci.yml)
 [![Docker Image](https://github.com/silentprior/paperless-paddle-ocr/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/silentprior/paperless-paddle-ocr/actions/workflows/docker-publish.yml)
-[![Docker Pulls](https://img.shields.io/docker/pulls/YOUR_DOCKERHUB_USERNAME/paperless-paddle-ocr)](https://hub.docker.com/r/YOUR_DOCKERHUB_USERNAME/paperless-paddle-ocr)
-[![Docker Image Size](https://img.shields.io/docker/image-size/YOUR_DOCKERHUB_USERNAME/paperless-paddle-ocr/latest)](https://hub.docker.com/r/YOUR_DOCKERHUB_USERNAME/paperless-paddle-ocr)
+[![Docker Pulls](https://img.shields.io/docker/pulls/silentprior/paperless-paddle-ocr)](https://hub.docker.com/r/silentprior/paperless-paddle-ocr)
+[![Docker Image Size](https://img.shields.io/docker/image-size/silentprior/paperless-paddle-ocr/latest)](https://hub.docker.com/r/silentprior/paperless-paddle-ocr)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A small, CPU-friendly sidecar worker that OCRs [paperless-ngx](https://github.com/paperless-ngx/paperless-ngx)
@@ -54,7 +54,7 @@ docker run -d \
   -e PAPERLESS_OUTPUT_TAG="ocr_done" \
   -v paddle-ocr-cache:/app/.paddle_cache \
   -p 8081:8080 \
-  YOUR_DOCKERHUB_USERNAME/paperless-paddle-ocr:latest
+  silentprior/paperless-paddle-ocr:latest
 ```
 
 Then in paperless-ngx, tag any document you want OCR'd with your

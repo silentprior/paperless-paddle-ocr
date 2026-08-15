@@ -25,7 +25,7 @@ docker run -d \
   -e PAPERLESS_OUTPUT_TAG="ocr_done" \
   -v paddle-ocr-cache:/app/.paddle_cache \
   -p 8081:8080 \
-  YOUR_DOCKERHUB_USERNAME/paperless-paddle-ocr:latest
+  silentprior/paperless-paddle-ocr:latest
 ```
 
 Or with Docker Compose — see the
