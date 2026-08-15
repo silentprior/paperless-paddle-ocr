@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: paperless-ngx questions
+    url: https://github.com/paperless-ngx/paperless-ngx/discussions
+    about: Questions about paperless-ngx itself (not this OCR worker) belong upstream.

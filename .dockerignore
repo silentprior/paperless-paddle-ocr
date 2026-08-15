@@ -1,0 +1,28 @@
+# Keep the build context small and avoid leaking local/dev-only files
+# into the image.
+.git
+.github
+.gitignore
+.dockerignore
+
+tests/
+docs/
+*.md
+LICENSE
+
+.venv/
+venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+.env
+.env.*
+!*.env.example
+
+docker-compose*.yml
+Dockerfile

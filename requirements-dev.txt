@@ -1,0 +1,14 @@
+# Lightweight runtime deps needed to import ocr_worker.py under test.
+# paddlepaddle / paddleocr / pymupdf are intentionally NOT installed here --
+# they're large binary packages and the test suite stubs them out
+# (see tests/conftest.py) so CI stays fast and doesn't need an OCR runtime
+# just to check the plumbing logic.
+requests>=2.32,<3
+numpy>=1.26,<2
+Pillow>=10.4
+
+pytest>=8.3
+pytest-mock>=3.14
+ruff>=0.6
+mypy>=1.11
+types-requests>=2.32

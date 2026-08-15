@@ -1,0 +1,27 @@
+[project]
+name = "paperless-paddle-ocr"
+version = "1.0.0"
+description = "PaddleOCR (PP-OCRv6) worker that OCRs paperless-ngx documents via its API."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]  # line length handled by formatter/manual judgment
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true
+no_implicit_optional = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: requires a real paperless-ngx instance and OCR runtime (skipped by default in CI)",
+]

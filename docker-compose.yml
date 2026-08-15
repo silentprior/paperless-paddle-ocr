@@ -1,0 +1,67 @@
+services:
+  paddle-ocr-worker:
+    build: .
+    image: paperless-paddle-ocr:latest
+    container_name: paperless-paddle-ocr
+    restart: unless-stopped
+
+    environment:
+      # --- Paperless-ngx connection -----------------------------------
+      PAPERLESS_BASE_URL: "http://192.168.0.232:8000"   # adjust to your setup
+      PAPERLESS_API_TOKEN: "${PAPERLESS_API_TOKEN}"      # set in .env
+      PAPERLESS_VERIFY_SSL: "false"                      # "true" if using valid certs
+
+      # --- Tagging / workflow -------------------------------------------
+      PAPERLESS_INPUT_TAG: "to_ocr"
+      PAPERLESS_OUTPUT_TAG: "ocr_done"
+      PAPERLESS_ERROR_TAG: "ocr_failed"
+      PAPERLESS_TRACKING_TAG: "paddle_processed"
+      PAPERLESS_REPROCESS: "false"
+      PAPERLESS_DRY_RUN: "false"
+
+      # --- Run behaviour --------------------------------------------------
+      PAPERLESS_RUN_MODE: "daemon"
+      PAPERLESS_INTERVAL_SECONDS: "3600"
+      PAPERLESS_DELAY_SECONDS: "1"
+      PAPERLESS_STARTUP_TIMEOUT: "60"
+      PAPERLESS_HEALTH_PORT: "8080"
+
+      # --- OCR engine (PP-OCRv6) ------------------------------------------
+      OCR_LANG: "en"
+      OCR_DPI: "200"
+      OCR_TIER: "small"          # tiny | small | medium
+      OCR_ENGINE: "paddle"       # paddle | onnxruntime | openvino
+      OCR_ENABLE_MKLDNN: "false"
+      OCR_THREADS: "4"
+      OCR_CACHE_DIR: "/app/.paddle_cache"
+
+      TZ: "UTC"
+      LOG_LEVEL: "INFO"
+
+    volumes:
+      # Persist downloaded OCR model weights across restarts/rebuilds so
+      # the container doesn't re-download ~100MB+ of models every start.
+      - paddle-ocr-cache:/app/.paddle_cache
+
+    ports:
+      - "8081:8080"   # healthcheck endpoint
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+    # Uncomment to put this container on the same network as paperless-ngx
+    # so PAPERLESS_BASE_URL can use the paperless service name instead of
+    # an IP (e.g. http://paperless-ngx-webserver-1:8000).
+    # networks:
+    #   - paperless-network
+
+volumes:
+  paddle-ocr-cache:
+
+# networks:
+#   paperless-network:
+#     external: true   # assumes your paperless-ngx compose stack created this network
