@@ -25,5 +25,5 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - Replaced the deprecated `PaddleOCR.ocr()` call with `PaddleOCR.predict()`.
 - Replaced `pdf2image`/poppler-based PDF rendering with PyMuPDF.
 
-[Unreleased]: https://github.com/YOUR_GH_USERNAME/paperless-paddle-ocr/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/YOUR_GH_USERNAME/paperless-paddle-ocr/releases/tag/v1.0.0
+[Unreleased]: https://github.com/silentprior/paperless-paddle-ocr/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/silentprior/paperless-paddle-ocr/releases/tag/v1.0.0

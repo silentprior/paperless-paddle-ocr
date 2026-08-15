@@ -6,7 +6,7 @@ process is intentionally lightweight.
 ## Getting set up
 
 ```bash
-git clone https://github.com/YOUR_GH_USERNAME/paperless-paddle-ocr.git
+git clone https://github.com/silentprior/paperless-paddle-ocr.git
 cd paperless-paddle-ocr
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt

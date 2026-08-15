@@ -4,7 +4,7 @@ A CPU-friendly sidecar that OCRs [paperless-ngx](https://github.com/paperless-ng
 documents with **PaddleOCR PP-OCRv6** and writes the extracted text back via
 the paperless-ngx API.
 
-- Full source, issue tracker, and docs: https://github.com/YOUR_GH_USERNAME/paperless-paddle-ocr
+- Full source, issue tracker, and docs: https://github.com/silentprior/paperless-paddle-ocr
 - No poppler / system OCR binaries needed (PDF pages render via PyMuPDF)
 - Runs as non-root, ships a `HEALTHCHECK`, multi-arch (`linux/amd64`, `linux/arm64`)
 - Fully configured via environment variables — no image rebuild needed to tune
@@ -29,7 +29,7 @@ docker run -d \
 ```
 
 Or with Docker Compose — see the
-[docker-compose.yml](https://github.com/YOUR_GH_USERNAME/paperless-paddle-ocr/blob/main/docker-compose.yml)
+[docker-compose.yml](https://github.com/silentprior/paperless-paddle-ocr/blob/main/docker-compose.yml)
 in the source repo.
 
 Tag any paperless-ngx document with your `PAPERLESS_INPUT_TAG` (default:
@@ -53,9 +53,9 @@ Tag any paperless-ngx document with your `PAPERLESS_INPUT_TAG` (default:
 | `OCR_THREADS` | `4` | CPU threads for inference |
 
 Full reference: see the docstring in
-[`ocr_worker.py`](https://github.com/YOUR_GH_USERNAME/paperless-paddle-ocr/blob/main/ocr_worker.py)
-or [`docs/CONFIGURATION.md`](https://github.com/YOUR_GH_USERNAME/paperless-paddle-ocr/blob/main/docs/CONFIGURATION.md).
+[`ocr_worker.py`](https://github.com/silentprior/paperless-paddle-ocr/blob/main/ocr_worker.py)
+or [`docs/CONFIGURATION.md`](https://github.com/silentprior/paperless-paddle-ocr/blob/main/docs/CONFIGURATION.md).
 
 ## License
 
-MIT — see the [source repository](https://github.com/YOUR_GH_USERNAME/paperless-paddle-ocr) for details.
+MIT — see the [source repository](https://github.com/silentprior/paperless-paddle-ocr) for details.

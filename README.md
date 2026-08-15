@@ -1,7 +1,7 @@
 # paperless-paddle-ocr
 
-[![CI](https://github.com/YOUR_GH_USERNAME/paperless-paddle-ocr/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_GH_USERNAME/paperless-paddle-ocr/actions/workflows/ci.yml)
-[![Docker Image](https://github.com/YOUR_GH_USERNAME/paperless-paddle-ocr/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/YOUR_GH_USERNAME/paperless-paddle-ocr/actions/workflows/docker-publish.yml)
+[![CI](https://github.com/silentprior/paperless-paddle-ocr/actions/workflows/ci.yml/badge.svg)](https://github.com/silentprior/paperless-paddle-ocr/actions/workflows/ci.yml)
+[![Docker Image](https://github.com/silentprior/paperless-paddle-ocr/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/silentprior/paperless-paddle-ocr/actions/workflows/docker-publish.yml)
 [![Docker Pulls](https://img.shields.io/docker/pulls/YOUR_DOCKERHUB_USERNAME/paperless-paddle-ocr)](https://hub.docker.com/r/YOUR_DOCKERHUB_USERNAME/paperless-paddle-ocr)
 [![Docker Image Size](https://img.shields.io/docker/image-size/YOUR_DOCKERHUB_USERNAME/paperless-paddle-ocr/latest)](https://hub.docker.com/r/YOUR_DOCKERHUB_USERNAME/paperless-paddle-ocr)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -33,7 +33,7 @@ handwriting-adjacent text, or non-Latin scripts.
 ### 1. Docker Compose (recommended)
 
 ```bash
-git clone https://github.com/YOUR_GH_USERNAME/paperless-paddle-ocr.git
+git clone https://github.com/silentprior/paperless-paddle-ocr.git
 cd paperless-paddle-ocr
 cp .env.example .env
 # edit .env and set PAPERLESS_API_TOKEN
