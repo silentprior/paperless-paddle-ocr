@@ -1,7 +1,7 @@
 # Core
 requests>=2.32,<3
 numpy>=1.26,<2
-Pillow>=10.4
+Pillow>=12.3.0
 
 # PDF rendering — pure-Python wheel, no poppler / system binaries needed
 pymupdf>=1.24

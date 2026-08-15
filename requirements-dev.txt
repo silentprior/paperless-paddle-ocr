@@ -5,7 +5,7 @@
 # just to check the plumbing logic.
 requests>=2.32,<3
 numpy>=1.26,<3
-Pillow>=10.4
+Pillow>=12.3.0
 
 pytest>=8.3
 pytest-mock>=3.14
