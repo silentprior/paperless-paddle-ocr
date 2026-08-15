@@ -7,8 +7,8 @@ services:
 
     environment:
       # --- Paperless-ngx connection -----------------------------------
-      PAPERLESS_BASE_URL: "http://192.168.0.232:8000"   # adjust to your setup
-      PAPERLESS_API_TOKEN: "${PAPERLESS_API_TOKEN}"      # set in .env
+      PAPERLESS_BASE_URL: "${PAPERLESS_BASE_URL:-http://paperless-ngx:8000}"
+      PAPERLESS_API_TOKEN: "${PAPERLESS_API_TOKEN:-changeme}"
       PAPERLESS_VERIFY_SSL: "false"                      # "true" if using valid certs
 
       # --- Tagging / workflow -------------------------------------------

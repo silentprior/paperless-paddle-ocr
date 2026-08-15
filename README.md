@@ -48,7 +48,7 @@ docker compose logs -f
 ```bash
 docker run -d \
   --name paperless-paddle-ocr \
-  -e PAPERLESS_BASE_URL="http://192.168.0.232:8000" \
+  -e PAPERLESS_BASE_URL="http://paperless-ngx:8000" \
   -e PAPERLESS_API_TOKEN="your_token_here" \
   -e PAPERLESS_INPUT_TAG="to_ocr" \
   -e PAPERLESS_OUTPUT_TAG="ocr_done" \
