@@ -26,6 +26,8 @@ Tagging / workflow
 PAPERLESS_INPUT_TAG       Only process documents with this tag (default: all)
 PAPERLESS_OUTPUT_TAG      Tag to apply after successful OCR (optional)
 PAPERLESS_ERROR_TAG       Tag to apply if OCR fails (optional)
+PAPERLESS_PROCESSING_TAG  Temporary tag used while a document is being OCR'd
+                           (default: paddle_processing)
 PAPERLESS_TRACKING_TAG    Tag used to mark docs as "already processed"
                            (default: paddle_processed)
 PAPERLESS_REPROCESS       Re-OCR documents that already have the tracking
@@ -70,6 +72,7 @@ LOG_LEVEL           Python logging level (default: INFO)
 
 from __future__ import annotations
 
+import fcntl
 import io
 import logging
 import os
@@ -102,6 +105,7 @@ class Config:
     PAPERLESS_INPUT_TAG = os.environ.get("PAPERLESS_INPUT_TAG", "") or None
     PAPERLESS_OUTPUT_TAG = os.environ.get("PAPERLESS_OUTPUT_TAG", "") or None
     PAPERLESS_ERROR_TAG = os.environ.get("PAPERLESS_ERROR_TAG", "") or None
+    PAPERLESS_PROCESSING_TAG = os.environ.get("PAPERLESS_PROCESSING_TAG", "paddle_processing")
     PAPERLESS_TRACKING_TAG = os.environ.get("PAPERLESS_TRACKING_TAG", "paddle_processed")
     PAPERLESS_REPROCESS = _env_bool("PAPERLESS_REPROCESS", False)
     PAPERLESS_DRY_RUN = _env_bool("PAPERLESS_DRY_RUN", False)
@@ -323,9 +327,11 @@ def fetch_candidate_documents() -> list[dict]:
             )
 
     if not Config.PAPERLESS_REPROCESS:
-        tracking_tag_id = get_or_create_tag_id(Config.PAPERLESS_TRACKING_TAG)
-        if tracking_tag_id:
-            params["tags__id__not"] = tracking_tag_id
+        processed_tag_id = get_or_create_tag_id(Config.PAPERLESS_TRACKING_TAG)
+        processing_tag_id = get_or_create_tag_id(Config.PAPERLESS_PROCESSING_TAG)
+        excluded_tag_ids = [tag_id for tag_id in (processed_tag_id, processing_tag_id) if tag_id]
+        if excluded_tag_ids:
+            params["tags__id__not"] = excluded_tag_ids
 
     docs: list[dict] = []
     page = 1
@@ -383,35 +389,76 @@ def process_document(doc: dict) -> None:
 
     current_tags = get_tag_ids_from_doc(doc)
 
+    # Claim the document with a temporary processing tag *before* running OCR, not after. OCR on a large
+    # multi-hundred-page PDF can take a long time, and the tracking tag was
+    # previously only written once that finished -- so a second worker (or
+    # a second poll cycle that starts before the first one has looped back
+    # around) had the *entire* OCR duration as a window to pick up the same
+    # "not yet tracked" document and OCR it again (see GitHub issue #23).
+    # Writing the tracking tag immediately shrinks that window down to a
+    # single PATCH call. If OCR then fails, the claim is rolled back below
+    # so the document is still retried on a later run.
+    processing_tag_id = get_or_create_tag_id(Config.PAPERLESS_PROCESSING_TAG)
+    processed_tag_id = get_or_create_tag_id(Config.PAPERLESS_TRACKING_TAG)
+    claimed = False
+    if processing_tag_id and not Config.PAPERLESS_DRY_RUN:
+        claim_tags = apply_tag(doc_id, current_tags, processing_tag_id)
+        if claim_tags != current_tags:
+            try:
+                claim_resp = SESSION.patch(
+                    f"{Config.PAPERLESS_BASE_URL}/api/documents/{doc_id}/",
+                    json={"tags": claim_tags},
+                )
+                claim_resp.raise_for_status()
+                current_tags = claim_tags
+                claimed = True
+            except requests.RequestException as exc:
+                logger.error(
+                    "[DOC:%s] Failed to claim document before OCR, skipping this run to avoid "
+                    "duplicate processing: %s",
+                    doc_id,
+                    exc,
+                )
+                return
+
     try:
         extracted_text = extract_text(file_content, mime_type)
     except Exception as exc:  # noqa: BLE001 - one bad doc shouldn't kill the run
         logger.error("[DOC:%s] OCR failed: %s", doc_id, exc, exc_info=True)
-        if Config.PAPERLESS_ERROR_TAG and not Config.PAPERLESS_DRY_RUN:
+        if not Config.PAPERLESS_DRY_RUN:
             try:
-                error_tag_id = get_or_create_tag_id(Config.PAPERLESS_ERROR_TAG)
-                updated_tags = apply_tag(doc_id, current_tags, error_tag_id)
-                if updated_tags != current_tags:
+                updated_tags = set(current_tags)
+                if claimed and processing_tag_id:
+                    # Undo the provisional claim so the document is
+                    # retried on a future run instead of being treated as
+                    # permanently "done".
+                    updated_tags.discard(processing_tag_id)
+                if Config.PAPERLESS_ERROR_TAG:
+                    error_tag_id = get_or_create_tag_id(Config.PAPERLESS_ERROR_TAG)
+                    if error_tag_id:
+                        updated_tags.add(error_tag_id)
+                if updated_tags != set(current_tags):
                     SESSION.patch(
                         f"{Config.PAPERLESS_BASE_URL}/api/documents/{doc_id}/",
-                        json={"tags": updated_tags},
+                        json={"tags": sorted(updated_tags)},
                     )
-                    logger.info("[DOC:%s] Applied error tag: %s", doc_id, Config.PAPERLESS_ERROR_TAG)
+                    logger.info("[DOC:%s] Updated tags after failure -> %s", doc_id, sorted(updated_tags))
             except Exception as tag_exc:  # noqa: BLE001
-                logger.error("[DOC:%s] Failed to apply error tag: %s", doc_id, tag_exc)
+                logger.error("[DOC:%s] Failed to update tags after failure: %s", doc_id, tag_exc)
         return
 
     if not extracted_text:
         logger.warning("[DOC:%s] No text extracted (empty result)", doc_id)
 
-    tracking_tag_id = get_or_create_tag_id(Config.PAPERLESS_TRACKING_TAG)
     output_tag_id = get_or_create_tag_id(Config.PAPERLESS_OUTPUT_TAG)
     error_tag_id = get_or_create_tag_id(Config.PAPERLESS_ERROR_TAG)
 
     final_tags = set(current_tags)
     final_tags.discard(error_tag_id) if error_tag_id else None
-    if tracking_tag_id:
-        final_tags.add(tracking_tag_id)
+    if processing_tag_id:
+        final_tags.discard(processing_tag_id)
+    if processed_tag_id:
+        final_tags.add(processed_tag_id)
     if output_tag_id:
         final_tags.add(output_tag_id)
 
@@ -460,6 +507,44 @@ def start_health_server() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Singleton guard
+# ---------------------------------------------------------------------------
+# Fixed path (not user-configurable): this is a defensive, in-container
+# guard against *this* container ending up with two worker loops running
+# at once -- e.g. a process supervisor or restart policy starting a
+# replacement process before the previous one has fully exited. It is not
+# meant to coordinate across multiple containers/hosts.
+_SINGLETON_LOCK_PATH = "/tmp/paperless-paddle-ocr.lock"
+_singleton_lock_fh = None  # kept open for the lifetime of the process
+
+
+def acquire_singleton_lock() -> None:
+    """Make sure only one worker loop runs inside this container.
+
+    Uses a non-blocking flock() on a fixed path. If a second instance of
+    ocr_worker.py starts in the same container while the first is still
+    running, it will fail to acquire the lock here and exit immediately
+    instead of silently running a second, identical poll loop alongside
+    the first -- which is what previously let every document get OCR'd
+    twice (see GitHub issue #23).
+    """
+    global _singleton_lock_fh
+    _singleton_lock_fh = open(_SINGLETON_LOCK_PATH, "w")  # noqa: SIM115 - held for process lifetime
+    try:
+        fcntl.flock(_singleton_lock_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        logger.critical(
+            "Another instance of the OCR worker already appears to be running "
+            "in this container (lock held on %s). Refusing to start a second "
+            "worker loop, which would OCR every document twice.",
+            _SINGLETON_LOCK_PATH,
+        )
+        sys.exit(1)
+    _singleton_lock_fh.write(str(os.getpid()))
+    _singleton_lock_fh.flush()
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main() -> None:
@@ -474,7 +559,8 @@ def main() -> None:
     logger.info("PAPERLESS_BASE_URL     : %s", Config.PAPERLESS_BASE_URL)
     logger.info("PAPERLESS_INPUT_TAG    : %s", Config.PAPERLESS_INPUT_TAG or "(none - process all)")
     logger.info("PAPERLESS_OUTPUT_TAG   : %s", Config.PAPERLESS_OUTPUT_TAG or "(none)")
-    logger.info("PAPERLESS_TRACKING_TAG : %s", Config.PAPERLESS_TRACKING_TAG)
+    logger.info("PAPERLESS_PROCESSING_TAG: %s", Config.PAPERLESS_PROCESSING_TAG)
+    logger.info("PAPERLESS_TRACKING_TAG  : %s", Config.PAPERLESS_TRACKING_TAG)
     logger.info("PAPERLESS_REPROCESS    : %s", Config.PAPERLESS_REPROCESS)
     logger.info("PAPERLESS_DRY_RUN      : %s", Config.PAPERLESS_DRY_RUN)
     logger.info("PAPERLESS_RUN_MODE     : %s", Config.PAPERLESS_RUN_MODE)
@@ -482,6 +568,7 @@ def main() -> None:
     logger.info("OCR_DPI / THREADS      : %s / %s", Config.OCR_DPI, Config.OCR_THREADS)
     logger.info("======================")
 
+    acquire_singleton_lock()
     wait_for_paperless()
     start_health_server()
 

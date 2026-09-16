@@ -1,6 +1,6 @@
 [project]
 name = "paperless-paddle-ocr"
-version = "1.0.0"
+version = "1.0.1"
 description = "PaddleOCR (PP-OCRv6) worker that OCRs paperless-ngx documents via its API."
 readme = "README.md"
 license = { file = "LICENSE" }
