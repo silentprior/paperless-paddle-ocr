@@ -64,14 +64,14 @@ you configure and writes extracted text back into the document's content.
 ## How it works
 
 1. Poll paperless-ngx for documents matching `PAPERLESS_INPUT_TAG` that
-  don't already have `PAPERLESS_TRACKING_TAG` or `PAPERLESS_PROCESSING_TAG`
+  don't already have `PAPERLESS_PROCESSED_TAG` or `PAPERLESS_PROCESSING_TAG`
 2. Apply `PAPERLESS_PROCESSING_TAG` to claim the document before OCR
 3. Download each matching document
 4. If it's a PDF, render each page to an image with PyMuPDF; otherwise use
    the image directly
 5. Run PaddleOCR PP-OCRv6 over each page/image
 6. `PATCH` the document's `content` field in paperless-ngx with the
-  extracted text, remove the processing tag, and apply the tracking/output
+  extracted text, remove the processing tag, and apply the processed/output
   tag (or remove the processing tag and apply the error tag on failure)
 7. Sleep for `PAPERLESS_INTERVAL_SECONDS` and repeat (daemon mode), or exit
    (oneshot mode)
