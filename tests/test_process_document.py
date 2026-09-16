@@ -131,7 +131,9 @@ def test_process_document_rolls_back_claim_on_ocr_failure(monkeypatch):
     monkeypatch.setattr(
         ocr_worker.SESSION, "get", MagicMock(return_value=_mock_response(content=b"%PDF-fake"))
     )
-    patch_mock = MagicMock(return_value=_mock_response())
+    claim_response = _mock_response()
+    cleanup_response = _mock_response()
+    patch_mock = MagicMock(side_effect=[claim_response, cleanup_response])
     monkeypatch.setattr(ocr_worker.SESSION, "patch", patch_mock)
 
     def failing_extract_text(*a, **k):
@@ -152,6 +154,7 @@ def test_process_document_rolls_back_claim_on_ocr_failure(monkeypatch):
     assert 11 not in failure_tags
     assert 10 not in failure_tags
     assert 30 in failure_tags
+    cleanup_response.raise_for_status.assert_called_once()
 
 
 def test_process_document_aborts_before_ocr_if_claim_fails(monkeypatch):

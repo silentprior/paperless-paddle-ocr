@@ -444,10 +444,11 @@ def process_document(doc: dict) -> None:
                     if error_tag_id:
                         updated_tags.add(error_tag_id)
                 if updated_tags != set(current_tags):
-                    SESSION.patch(
+                    cleanup_resp = SESSION.patch(
                         f"{Config.PAPERLESS_BASE_URL}/api/documents/{doc_id}/",
                         json={"tags": sorted(updated_tags)},
                     )
+                    cleanup_resp.raise_for_status()
                     logger.info("[DOC:%s] Updated tags after failure -> %s", doc_id, sorted(updated_tags))
             except Exception as tag_exc:  # noqa: BLE001
                 logger.error("[DOC:%s] Failed to update tags after failure: %s", doc_id, tag_exc)
