@@ -314,7 +314,7 @@ def wait_for_paperless() -> None:
 
 
 def fetch_candidate_documents() -> list[dict]:
-    params: dict = {"page_size": 100}
+    params: dict = {"page_size": 100, "fields": "id,title,tags"}
 
     input_tag_id = None
     if Config.PAPERLESS_INPUT_TAG:
@@ -331,7 +331,7 @@ def fetch_candidate_documents() -> list[dict]:
         processing_tag_id = get_or_create_tag_id(Config.PAPERLESS_PROCESSING_TAG)
         excluded_tag_ids = [tag_id for tag_id in (processed_tag_id, processing_tag_id) if tag_id]
         if excluded_tag_ids:
-            params["tags__id__not"] = excluded_tag_ids
+            params["tags__id__none"] = ",".join(map(str, excluded_tag_ids))
 
     docs: list[dict] = []
     page = 1

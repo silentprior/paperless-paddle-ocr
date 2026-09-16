@@ -64,3 +64,24 @@ def test_fetch_candidate_documents_paginates(monkeypatch):
 
     docs = ocr_worker.fetch_candidate_documents()
     assert [d["id"] for d in docs] == [1, 2]
+    assert get_mock.call_args.kwargs["params"]["fields"] == "id,title,tags"
+
+
+def test_fetch_candidate_documents_excludes_processed_and_processing_tags(monkeypatch):
+    ocr_worker._TAG_ID_CACHE.clear()
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_INPUT_TAG", None)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_REPROCESS", False)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_TRACKING_TAG", "paddle_ocr")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
+    monkeypatch.setattr(
+        ocr_worker,
+        "get_or_create_tag_id",
+        lambda name: {"paddle_ocr": 10, "paddle_processing": 20}[name],
+    )
+    get_mock = MagicMock(return_value=_mock_response({"results": [], "next": None}))
+    monkeypatch.setattr(ocr_worker.SESSION, "get", get_mock)
+
+    ocr_worker.fetch_candidate_documents()
+
+    assert get_mock.call_args.kwargs["params"]["tags__id__none"] == "10,20"
+    assert "tags__id__not" not in get_mock.call_args.kwargs["params"]
