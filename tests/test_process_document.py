@@ -16,7 +16,7 @@ def test_process_document_dry_run_does_not_patch(monkeypatch):
     ocr_worker._TAG_ID_CACHE.clear()
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", True)
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
-    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_TRACKING_TAG", "paddle_processed")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_processed")
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_OUTPUT_TAG", None)
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_ERROR_TAG", None)
 
@@ -83,7 +83,7 @@ def test_process_document_claims_tracking_tag_before_ocr(monkeypatch):
     ocr_worker._TAG_ID_CACHE.clear()
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", False)
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
-    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_TRACKING_TAG", "paddle_processed")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_processed")
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_OUTPUT_TAG", None)
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_ERROR_TAG", None)
     monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", _tag_id_lookup)
@@ -123,7 +123,7 @@ def test_process_document_rolls_back_claim_on_ocr_failure(monkeypatch):
     ocr_worker._TAG_ID_CACHE.clear()
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", False)
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
-    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_TRACKING_TAG", "paddle_processed")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_processed")
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_OUTPUT_TAG", None)
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_ERROR_TAG", "ocr_failed")
     monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", _tag_id_lookup)
@@ -163,7 +163,7 @@ def test_process_document_aborts_before_ocr_if_claim_fails(monkeypatch):
     ocr_worker._TAG_ID_CACHE.clear()
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", False)
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
-    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_TRACKING_TAG", "paddle_processed")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_processed")
     monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", _tag_id_lookup)
 
     monkeypatch.setattr(

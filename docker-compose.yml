@@ -16,7 +16,7 @@ services:
       PAPERLESS_OUTPUT_TAG: "ocr_done"
       PAPERLESS_ERROR_TAG: "ocr_failed"
       PAPERLESS_PROCESSING_TAG: "paddle_processing"
-      PAPERLESS_TRACKING_TAG: "paddle_processed"
+      PAPERLESS_PROCESSED_TAG: "paddle_processed"
       PAPERLESS_REPROCESS: "false"
       PAPERLESS_DRY_RUN: "false"
 

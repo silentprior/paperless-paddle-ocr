@@ -73,7 +73,7 @@ def test_fetch_candidate_documents_excludes_processed_and_processing_tags(monkey
     ocr_worker._TAG_ID_CACHE.clear()
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_INPUT_TAG", None)
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_REPROCESS", False)
-    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_TRACKING_TAG", "paddle_ocr")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_ocr")
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
     monkeypatch.setattr(
         ocr_worker,
@@ -93,7 +93,7 @@ def test_fetch_candidate_documents_reprocess_excludes_only_processing_tag(monkey
     ocr_worker._TAG_ID_CACHE.clear()
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_INPUT_TAG", None)
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_REPROCESS", True)
-    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_TRACKING_TAG", "paddle_ocr")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_ocr")
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
     monkeypatch.setattr(
         ocr_worker,

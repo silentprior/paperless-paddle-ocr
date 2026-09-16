@@ -28,7 +28,7 @@ PAPERLESS_OUTPUT_TAG      Tag to apply after successful OCR (optional)
 PAPERLESS_ERROR_TAG       Tag to apply if OCR fails (optional)
 PAPERLESS_PROCESSING_TAG  Temporary tag used while a document is being OCR'd
                            (default: paddle_processing)
-PAPERLESS_TRACKING_TAG    Tag used to mark docs as "already processed"
+PAPERLESS_PROCESSED_TAG   Tag used to mark docs as "already processed"
                            (default: paddle_processed)
 PAPERLESS_REPROCESS       Re-OCR documents that already have the tracking
                            tag ("true"/"false", default: false)
@@ -95,6 +95,12 @@ def _env_bool(name: str, default: bool) -> bool:
     return os.environ.get(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
 
 
+def _processed_tag_name() -> str:
+    return os.environ.get("PAPERLESS_PROCESSED_TAG") or os.environ.get(
+        "PAPERLESS_TRACKING_TAG", "paddle_processed"
+    )
+
+
 class Config:
     # Paperless connection
     PAPERLESS_BASE_URL = os.environ.get("PAPERLESS_BASE_URL", "").rstrip("/")
@@ -106,7 +112,7 @@ class Config:
     PAPERLESS_OUTPUT_TAG = os.environ.get("PAPERLESS_OUTPUT_TAG", "") or None
     PAPERLESS_ERROR_TAG = os.environ.get("PAPERLESS_ERROR_TAG", "") or None
     PAPERLESS_PROCESSING_TAG = os.environ.get("PAPERLESS_PROCESSING_TAG", "paddle_processing")
-    PAPERLESS_TRACKING_TAG = os.environ.get("PAPERLESS_TRACKING_TAG", "paddle_processed")
+    PAPERLESS_PROCESSED_TAG = _processed_tag_name()
     PAPERLESS_REPROCESS = _env_bool("PAPERLESS_REPROCESS", False)
     PAPERLESS_DRY_RUN = _env_bool("PAPERLESS_DRY_RUN", False)
 
@@ -329,9 +335,9 @@ def fetch_candidate_documents() -> list[dict]:
     processing_tag_id = get_or_create_tag_id(Config.PAPERLESS_PROCESSING_TAG)
     excluded_tag_ids = [processing_tag_id] if processing_tag_id else []
     if not Config.PAPERLESS_REPROCESS:
-        processed_tag_id = get_or_create_tag_id(Config.PAPERLESS_TRACKING_TAG)
-        if processed_tag_id:
-            excluded_tag_ids.insert(0, processed_tag_id)
+        tracking_tag_id = get_or_create_tag_id(Config.PAPERLESS_PROCESSED_TAG)
+        if tracking_tag_id:
+            excluded_tag_ids.insert(0, tracking_tag_id)
     if excluded_tag_ids:
         params["tags__id__none"] = ",".join(map(str, excluded_tag_ids))
 
@@ -405,7 +411,7 @@ def process_document(doc: dict) -> None:
     # Writing the tracking tag immediately shrinks that window down to a
     # single PATCH call. If OCR then fails, the claim is rolled back below
     # so the document is still retried on a later run.
-    processed_tag_id = get_or_create_tag_id(Config.PAPERLESS_TRACKING_TAG)
+    tracking_tag_id = get_or_create_tag_id(Config.PAPERLESS_PROCESSED_TAG)
     claimed = False
     if processing_tag_id and not Config.PAPERLESS_DRY_RUN:
         claim_tags = apply_tag(doc_id, current_tags, processing_tag_id)
@@ -464,8 +470,8 @@ def process_document(doc: dict) -> None:
     final_tags.discard(error_tag_id) if error_tag_id else None
     if processing_tag_id:
         final_tags.discard(processing_tag_id)
-    if processed_tag_id:
-        final_tags.add(processed_tag_id)
+    if tracking_tag_id:
+        final_tags.add(tracking_tag_id)
     if output_tag_id:
         final_tags.add(output_tag_id)
 
@@ -567,7 +573,7 @@ def main() -> None:
     logger.info("PAPERLESS_INPUT_TAG    : %s", Config.PAPERLESS_INPUT_TAG or "(none - process all)")
     logger.info("PAPERLESS_OUTPUT_TAG   : %s", Config.PAPERLESS_OUTPUT_TAG or "(none)")
     logger.info("PAPERLESS_PROCESSING_TAG: %s", Config.PAPERLESS_PROCESSING_TAG)
-    logger.info("PAPERLESS_TRACKING_TAG  : %s", Config.PAPERLESS_TRACKING_TAG)
+    logger.info("PAPERLESS_PROCESSED_TAG : %s", Config.PAPERLESS_PROCESSED_TAG)
     logger.info("PAPERLESS_REPROCESS    : %s", Config.PAPERLESS_REPROCESS)
     logger.info("PAPERLESS_DRY_RUN      : %s", Config.PAPERLESS_DRY_RUN)
     logger.info("PAPERLESS_RUN_MODE     : %s", Config.PAPERLESS_RUN_MODE)
