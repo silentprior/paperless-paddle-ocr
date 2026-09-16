@@ -58,6 +58,20 @@ def test_process_document_missing_id_is_noop(monkeypatch):
     get_mock.assert_not_called()
 
 
+def test_process_document_skips_document_with_processing_tag(monkeypatch):
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", lambda _: 11)
+    get_mock = MagicMock()
+    extract_mock = MagicMock()
+    monkeypatch.setattr(ocr_worker.SESSION, "get", get_mock)
+    monkeypatch.setattr(ocr_worker, "extract_text", extract_mock)
+
+    ocr_worker.process_document({"id": 123, "title": "In Flight", "tags": [11]})
+
+    get_mock.assert_not_called()
+    extract_mock.assert_not_called()
+
+
 def _tag_id_lookup(name):
     return {"paddle_processing": 11, "paddle_processed": 10, "ocr_done": 20, "ocr_failed": 30}.get(name)
 

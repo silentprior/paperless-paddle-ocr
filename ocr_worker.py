@@ -372,6 +372,11 @@ def process_document(doc: dict) -> None:
         return
 
     title = doc.get("title", "untitled")
+    processing_tag_id = get_or_create_tag_id(Config.PAPERLESS_PROCESSING_TAG)
+    if processing_tag_id and processing_tag_id in get_tag_ids_from_doc(doc):
+        logger.info("[DOC:%s] Skipping document already being processed: %s", doc_id, title)
+        return
+
     logger.info("[DOC:%s] Starting processing: %s", doc_id, title)
 
     download_url = f"{Config.PAPERLESS_BASE_URL}/api/documents/{doc_id}/download/"
@@ -400,7 +405,6 @@ def process_document(doc: dict) -> None:
     # Writing the tracking tag immediately shrinks that window down to a
     # single PATCH call. If OCR then fails, the claim is rolled back below
     # so the document is still retried on a later run.
-    processing_tag_id = get_or_create_tag_id(Config.PAPERLESS_PROCESSING_TAG)
     processed_tag_id = get_or_create_tag_id(Config.PAPERLESS_TRACKING_TAG)
     claimed = False
     if processing_tag_id and not Config.PAPERLESS_DRY_RUN:
