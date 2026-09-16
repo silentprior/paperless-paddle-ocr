@@ -60,7 +60,9 @@ def test_fetch_candidate_documents_paginates(monkeypatch):
 
     page1 = _mock_response({"results": [{"id": 1}], "next": "page2"})
     page2 = _mock_response({"results": [{"id": 2}], "next": None})
-    monkeypatch.setattr(ocr_worker.SESSION, "get", MagicMock(side_effect=[page1, page2]))
+    get_mock = MagicMock(side_effect=[page1, page2])
+    monkeypatch.setattr(ocr_worker.SESSION, "get", get_mock)
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", lambda _: None)
 
     docs = ocr_worker.fetch_candidate_documents()
     assert [d["id"] for d in docs] == [1, 2]
@@ -85,3 +87,22 @@ def test_fetch_candidate_documents_excludes_processed_and_processing_tags(monkey
 
     assert get_mock.call_args.kwargs["params"]["tags__id__none"] == "10,20"
     assert "tags__id__not" not in get_mock.call_args.kwargs["params"]
+
+
+def test_fetch_candidate_documents_reprocess_excludes_only_processing_tag(monkeypatch):
+    ocr_worker._TAG_ID_CACHE.clear()
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_INPUT_TAG", None)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_REPROCESS", True)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_TRACKING_TAG", "paddle_ocr")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
+    monkeypatch.setattr(
+        ocr_worker,
+        "get_or_create_tag_id",
+        lambda name: {"paddle_ocr": 10, "paddle_processing": 20}[name],
+    )
+    get_mock = MagicMock(return_value=_mock_response({"results": [], "next": None}))
+    monkeypatch.setattr(ocr_worker.SESSION, "get", get_mock)
+
+    ocr_worker.fetch_candidate_documents()
+
+    assert get_mock.call_args.kwargs["params"]["tags__id__none"] == "20"

@@ -326,12 +326,14 @@ def fetch_candidate_documents() -> list[dict]:
                 "Input tag '%s' could not be resolved – no documents will match.", Config.PAPERLESS_INPUT_TAG
             )
 
+    processing_tag_id = get_or_create_tag_id(Config.PAPERLESS_PROCESSING_TAG)
+    excluded_tag_ids = [processing_tag_id] if processing_tag_id else []
     if not Config.PAPERLESS_REPROCESS:
         processed_tag_id = get_or_create_tag_id(Config.PAPERLESS_TRACKING_TAG)
-        processing_tag_id = get_or_create_tag_id(Config.PAPERLESS_PROCESSING_TAG)
-        excluded_tag_ids = [tag_id for tag_id in (processed_tag_id, processing_tag_id) if tag_id]
-        if excluded_tag_ids:
-            params["tags__id__none"] = ",".join(map(str, excluded_tag_ids))
+        if processed_tag_id:
+            excluded_tag_ids.insert(0, processed_tag_id)
+    if excluded_tag_ids:
+        params["tags__id__none"] = ",".join(map(str, excluded_tag_ids))
 
     docs: list[dict] = []
     page = 1
