@@ -7,6 +7,11 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- Use PaddleX 3.x's `PADDLE_PDX_CACHE_HOME` environment variable so model
+  downloads stay under `OCR_CACHE_DIR` and persist across one-shot runs.
+  ([#27](https://github.com/silentprior/paperless-paddle-ocr/issues/27))
+
 ## [1.0.1] - 2026-09-17
 
 ### Fixed
