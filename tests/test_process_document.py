@@ -42,6 +42,7 @@ def test_process_document_skips_unsupported_mime(monkeypatch):
         "get",
         MagicMock(return_value=_mock_response(headers={"Content-Type": "text/plain"})),
     )
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", lambda _: None)
     extract_mock = MagicMock()
     monkeypatch.setattr(ocr_worker, "extract_text", extract_mock)
 
