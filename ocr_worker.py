@@ -558,7 +558,7 @@ def acquire_singleton_lock() -> None:
     twice (see GitHub issue #23).
     """
     global _singleton_lock_fh
-    _singleton_lock_fh = open(_SINGLETON_LOCK_PATH, "w")  # noqa: SIM115 - held for process lifetime
+    _singleton_lock_fh = open(_SINGLETON_LOCK_PATH, "a+")  # noqa: SIM115 - held for process lifetime
     try:
         fcntl.flock(_singleton_lock_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
@@ -569,6 +569,8 @@ def acquire_singleton_lock() -> None:
             _SINGLETON_LOCK_PATH,
         )
         sys.exit(1)
+    _singleton_lock_fh.seek(0)
+    _singleton_lock_fh.truncate()
     _singleton_lock_fh.write(str(os.getpid()))
     _singleton_lock_fh.flush()
 

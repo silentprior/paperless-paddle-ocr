@@ -29,12 +29,16 @@ def test_acquire_singleton_lock_exits_when_already_held(tmp_path, monkeypatch):
     monkeypatch.setattr(ocr_worker, "_singleton_lock_fh", None)
 
     # Simulate a first worker instance already holding the lock.
-    holder = open(lock_path, "w")  # noqa: SIM115 - held deliberately across the assertions below
+    holder = open(lock_path, "w+")  # noqa: SIM115 - held deliberately across the assertions below
+    holder.write("12345")
+    holder.flush()
     fcntl.flock(holder, fcntl.LOCK_EX | fcntl.LOCK_NB)
     try:
         with pytest.raises(SystemExit) as exc_info:
             ocr_worker.acquire_singleton_lock()
         assert exc_info.value.code == 1
+        holder.seek(0)
+        assert holder.read() == "12345"
     finally:
         fcntl.flock(holder, fcntl.LOCK_UN)
         holder.close()
