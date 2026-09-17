@@ -7,6 +7,20 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-17
+
+### Fixed
+- **Concurrency hardening** for worker processing. Issue #23's reported
+  duplicate execution was not conclusively reproduced, but a separate
+  `PAPERLESS_PROCESSING_TAG` is now written *before* OCR runs while the
+  completed tag remains the permanent success marker. A non-blocking
+  `flock`-based singleton guard also makes a second worker process in the
+  same container fail fast. If OCR then fails, the provisional processing
+  claim is rolled back so the document is retried on a later run. If the
+  final Paperless update fails, the worker also makes a best-effort attempt
+  to remove the processing tag.
+  ([#23](https://github.com/silentprior/paperless-paddle-ocr/issues/23))
+
 ## [1.0.0] - 2026-08-12
 
 ### Added
@@ -25,5 +39,6 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - Replaced the deprecated `PaddleOCR.ocr()` call with `PaddleOCR.predict()`.
 - Replaced `pdf2image`/poppler-based PDF rendering with PyMuPDF.
 
-[Unreleased]: https://github.com/silentprior/paperless-paddle-ocr/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/silentprior/paperless-paddle-ocr/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/silentprior/paperless-paddle-ocr/releases/tag/v1.0.1
 [1.0.0]: https://github.com/silentprior/paperless-paddle-ocr/releases/tag/v1.0.0

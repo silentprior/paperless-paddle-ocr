@@ -15,7 +15,8 @@ def _mock_response(content=b"", headers=None, status_code=200):
 def test_process_document_dry_run_does_not_patch(monkeypatch):
     ocr_worker._TAG_ID_CACHE.clear()
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", True)
-    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_TRACKING_TAG", "paddle_processed")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_processed")
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_OUTPUT_TAG", None)
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_ERROR_TAG", None)
 
@@ -41,6 +42,7 @@ def test_process_document_skips_unsupported_mime(monkeypatch):
         "get",
         MagicMock(return_value=_mock_response(headers={"Content-Type": "text/plain"})),
     )
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", lambda _: None)
     extract_mock = MagicMock()
     monkeypatch.setattr(ocr_worker, "extract_text", extract_mock)
 
@@ -55,3 +57,156 @@ def test_process_document_missing_id_is_noop(monkeypatch):
     monkeypatch.setattr(ocr_worker.SESSION, "get", get_mock)
     ocr_worker.process_document({"title": "No ID"})
     get_mock.assert_not_called()
+
+
+def test_process_document_skips_document_with_processing_tag(monkeypatch):
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", lambda _: 11)
+    get_mock = MagicMock()
+    extract_mock = MagicMock()
+    monkeypatch.setattr(ocr_worker.SESSION, "get", get_mock)
+    monkeypatch.setattr(ocr_worker, "extract_text", extract_mock)
+
+    ocr_worker.process_document({"id": 123, "title": "In Flight", "tags": [11]})
+
+    get_mock.assert_not_called()
+    extract_mock.assert_not_called()
+
+
+def _tag_id_lookup(name):
+    return {"paddle_processing": 11, "paddle_processed": 10, "ocr_done": 20, "ocr_failed": 30}.get(name)
+
+
+def test_process_document_claims_tracking_tag_before_ocr(monkeypatch):
+    """Concurrency hardening for GH #23: claim a document before OCR runs."""
+    ocr_worker._TAG_ID_CACHE.clear()
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", False)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_processed")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_OUTPUT_TAG", None)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_ERROR_TAG", None)
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", _tag_id_lookup)
+
+    monkeypatch.setattr(
+        ocr_worker.SESSION, "get", MagicMock(return_value=_mock_response(content=b"%PDF-fake"))
+    )
+
+    call_order = []
+
+    def fake_patch(url, json):
+        call_order.append(("patch", json["tags"]))
+        return _mock_response()
+
+    def fake_extract_text(*a, **k):
+        call_order.append(("extract", None))
+        return "hello world"
+
+    monkeypatch.setattr(ocr_worker.SESSION, "patch", fake_patch)
+    monkeypatch.setattr(ocr_worker, "extract_text", fake_extract_text)
+
+    doc = {"id": 123, "title": "Test Doc", "tags": []}
+    ocr_worker.process_document(doc)
+
+    # The claim PATCH (carrying the tracking tag) must happen before OCR,
+    # and OCR must be followed by the final content+tags PATCH.
+    assert [step for step, _ in call_order] == ["patch", "extract", "patch"]
+    claim_tags = call_order[0][1]
+    assert claim_tags == [11]
+    assert call_order[2][1] == [10]
+
+
+def test_process_document_rolls_back_claim_on_ocr_failure(monkeypatch):
+    """If OCR fails after the document was claimed, the tracking tag must be
+    removed again so the document is retried on a later run instead of
+    being silently treated as permanently done."""
+    ocr_worker._TAG_ID_CACHE.clear()
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", False)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_processed")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_OUTPUT_TAG", None)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_ERROR_TAG", "ocr_failed")
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", _tag_id_lookup)
+
+    monkeypatch.setattr(
+        ocr_worker.SESSION, "get", MagicMock(return_value=_mock_response(content=b"%PDF-fake"))
+    )
+    claim_response = _mock_response()
+    cleanup_response = _mock_response()
+    patch_mock = MagicMock(side_effect=[claim_response, cleanup_response])
+    monkeypatch.setattr(ocr_worker.SESSION, "patch", patch_mock)
+
+    def failing_extract_text(*a, **k):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(ocr_worker, "extract_text", failing_extract_text)
+
+    doc = {"id": 456, "title": "Bad Doc", "tags": []}
+    ocr_worker.process_document(doc)
+
+    # First call = the pre-OCR claim (tracking tag 10). Second call = the
+    # post-failure update, which must drop the tracking tag and add the
+    # error tag instead of leaving the document marked "done".
+    assert patch_mock.call_count == 2
+    claim_tags = patch_mock.call_args_list[0].kwargs["json"]["tags"]
+    failure_tags = patch_mock.call_args_list[1].kwargs["json"]["tags"]
+    assert claim_tags == [11]
+    assert 11 not in failure_tags
+    assert 10 not in failure_tags
+    assert 30 in failure_tags
+    cleanup_response.raise_for_status.assert_called_once()
+
+
+def test_process_document_removes_processing_tag_when_final_update_fails(monkeypatch):
+    ocr_worker._TAG_ID_CACHE.clear()
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", False)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_processed")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_OUTPUT_TAG", None)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_ERROR_TAG", None)
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", _tag_id_lookup)
+    monkeypatch.setattr(
+        ocr_worker.SESSION, "get", MagicMock(return_value=_mock_response(content=b"%PDF-fake"))
+    )
+    monkeypatch.setattr(ocr_worker, "extract_text", lambda *args: "hello world")
+
+    import requests
+
+    claim_response = _mock_response()
+    update_response = _mock_response()
+    update_response.raise_for_status.side_effect = requests.HTTPError("server error")
+    cleanup_response = _mock_response()
+    patch_mock = MagicMock(side_effect=[claim_response, update_response, cleanup_response])
+    monkeypatch.setattr(ocr_worker.SESSION, "patch", patch_mock)
+
+    ocr_worker.process_document({"id": 456, "title": "Update Error", "tags": []})
+
+    assert patch_mock.call_count == 3
+    assert patch_mock.call_args_list[2].kwargs["json"]["tags"] == []
+    cleanup_response.raise_for_status.assert_called_once()
+
+
+def test_process_document_aborts_before_ocr_if_claim_fails(monkeypatch):
+    """If the pre-OCR claim PATCH itself fails, we must not proceed to run
+    OCR at all -- otherwise we've lost the whole point of claiming first."""
+    ocr_worker._TAG_ID_CACHE.clear()
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", False)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_processed")
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", _tag_id_lookup)
+
+    monkeypatch.setattr(
+        ocr_worker.SESSION, "get", MagicMock(return_value=_mock_response(content=b"%PDF-fake"))
+    )
+
+    import requests
+
+    monkeypatch.setattr(
+        ocr_worker.SESSION, "patch", MagicMock(side_effect=requests.RequestException("network down"))
+    )
+    extract_mock = MagicMock()
+    monkeypatch.setattr(ocr_worker, "extract_text", extract_mock)
+
+    doc = {"id": 789, "title": "Unclaimable", "tags": []}
+    ocr_worker.process_document(doc)
+
+    extract_mock.assert_not_called()

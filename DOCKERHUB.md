@@ -44,6 +44,10 @@ Tag any paperless-ngx document with your `PAPERLESS_INPUT_TAG` (default:
 | `PAPERLESS_INPUT_TAG` | *(none — all docs)* | Only process documents with this tag |
 | `PAPERLESS_OUTPUT_TAG` | *(none)* | Tag applied after a successful OCR |
 | `PAPERLESS_ERROR_TAG` | *(none)* | Tag applied if OCR fails |
+| `PAPERLESS_PROCESSING_TAG` | `paddle_processing` | Temporary tag applied while a document is being OCR'd |
+| `PAPERLESS_PROCESSED_TAG` | `paddle_processed` | Tag applied after successful OCR to prevent reprocessing |
+| `PAPERLESS_TRACKING_TAG` | `paddle_processed` | Legacy alias for `PAPERLESS_PROCESSED_TAG` |
+| `PAPERLESS_REPROCESS` | `false` | Reprocess completed documents; documents being processed remain excluded |
 | `PAPERLESS_DRY_RUN` | `false` | Log intended changes without writing them |
 | `PAPERLESS_RUN_MODE` | `daemon` | `daemon` (loop) or `oneshot` |
 | `OCR_LANG` | `en` | PaddleOCR language code |

@@ -19,8 +19,10 @@ Set these in `docker-compose.yml`, a `docker run -e ...`, or your `.env` file
 | `PAPERLESS_INPUT_TAG` | *(none — all docs)* | Only process documents carrying this tag |
 | `PAPERLESS_OUTPUT_TAG` | *(none)* | Tag applied after a successful OCR |
 | `PAPERLESS_ERROR_TAG` | *(none)* | Tag applied if OCR fails; removed automatically on a later success |
-| `PAPERLESS_TRACKING_TAG` | `paddle_processed` | Internal tag used to avoid reprocessing the same document |
-| `PAPERLESS_REPROCESS` | `false` | If `true`, ignore the tracking tag and OCR matching docs again |
+| `PAPERLESS_PROCESSING_TAG` | `paddle_processing` | Temporary internal tag applied while a document is being OCR'd |
+| `PAPERLESS_PROCESSED_TAG` | `paddle_processed` | Tag used to mark a document as successfully processed |
+| `PAPERLESS_TRACKING_TAG` | `paddle_processed` | Legacy alias for `PAPERLESS_PROCESSED_TAG`; used only when the preferred variable is unset |
+| `PAPERLESS_REPROCESS` | `false` | If `true`, ignore the processed tag and OCR matching docs again; documents with the processing tag are still skipped |
 | `PAPERLESS_DRY_RUN` | `false` | Log what would change without writing anything to paperless |
 
 ## Run behaviour

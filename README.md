@@ -64,15 +64,18 @@ you configure and writes extracted text back into the document's content.
 ## How it works
 
 1. Poll paperless-ngx for documents matching `PAPERLESS_INPUT_TAG` that
-   don't already have `PAPERLESS_TRACKING_TAG`
-2. Download each matching document
-3. If it's a PDF, render each page to an image with PyMuPDF; otherwise use
+  don't have `PAPERLESS_PROCESSING_TAG` and, unless `PAPERLESS_REPROCESS=true`,
+  don't have `PAPERLESS_PROCESSED_TAG`
+2. Apply `PAPERLESS_PROCESSING_TAG` to claim the document before OCR
+3. Download each matching document
+4. If it's a PDF, render each page to an image with PyMuPDF; otherwise use
    the image directly
-4. Run PaddleOCR PP-OCRv6 over each page/image
-5. `PATCH` the document's `content` field in paperless-ngx with the
-   extracted text, and apply the tracking/output tag (or the error tag on
-   failure)
-6. Sleep for `PAPERLESS_INTERVAL_SECONDS` and repeat (daemon mode), or exit
+5. Run PaddleOCR PP-OCRv6 over each page/image
+6. `PATCH` the document's `content` field in paperless-ngx with the
+  extracted text, remove the processing tag, and apply the processed/output
+  tag. On OCR failure, remove the processing tag and apply the error tag; on
+  final-update failure, make a best-effort attempt to remove the processing tag.
+7. Sleep for `PAPERLESS_INTERVAL_SECONDS` and repeat (daemon mode), or exit
    (oneshot mode)
 
 ## Configuration
@@ -88,6 +91,7 @@ Most commonly changed:
 | `PAPERLESS_BASE_URL` | *(required)* | URL of your paperless-ngx instance |
 | `PAPERLESS_API_TOKEN` | *(required)* | Paperless API token |
 | `PAPERLESS_INPUT_TAG` | *(none, all docs)* | Only process documents with this tag |
+| `PAPERLESS_REPROCESS` | `false` | Reprocess completed documents; documents being processed remain excluded |
 | `OCR_LANG` | `en` | PaddleOCR language code |
 | `OCR_TIER` | `small` | Model tier: `tiny` \| `small` \| `medium` |
 | `OCR_ENGINE` | `paddle` | Backend: `paddle` \| `onnxruntime` \| `openvino` |
