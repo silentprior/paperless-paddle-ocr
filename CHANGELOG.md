@@ -16,7 +16,9 @@ and this project uses [Semantic Versioning](https://semver.org/).
   completed tag remains the permanent success marker. A non-blocking
   `flock`-based singleton guard also makes a second worker process in the
   same container fail fast. If OCR then fails, the provisional processing
-  claim is rolled back so the document is retried on a later run.
+  claim is rolled back so the document is retried on a later run. If the
+  final Paperless update fails, the worker also makes a best-effort attempt
+  to remove the processing tag.
   ([#23](https://github.com/silentprior/paperless-paddle-ocr/issues/23))
 
 ## [1.0.0] - 2026-08-12
