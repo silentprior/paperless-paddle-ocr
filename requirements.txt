@@ -4,7 +4,7 @@ numpy>=1.26,<2
 Pillow>=10.4
 
 # PDF rendering — pure-Python wheel, no poppler / system binaries needed
-pymupdf>=1.24
+pymupdf>=1.28.2
 
 # OCR engine (PP-OCRv6, requires PaddleOCR >= 3.7)
 paddlepaddle>=2.6
