@@ -78,9 +78,7 @@ def _tag_id_lookup(name):
 
 
 def test_process_document_claims_tracking_tag_before_ocr(monkeypatch):
-    """Regression test for GH #23: the tracking tag must be written *before*
-    OCR runs (not after it finishes), so a second worker/poll-cycle can't
-    pick up the same document while OCR is still in flight."""
+    """Concurrency hardening for GH #23: claim a document before OCR runs."""
     ocr_worker._TAG_ID_CACHE.clear()
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", False)
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")

@@ -418,11 +418,10 @@ def process_document(doc: dict) -> None:
     current_tags = get_tag_ids_from_doc(doc)
 
     # Claim the document with a temporary processing tag *before* running OCR, not after. OCR on a large
-    # multi-hundred-page PDF can take a long time, and the tracking tag was
-    # previously only written once that finished -- so a second worker (or
-    # a second poll cycle that starts before the first one has looped back
-    # around) had the *entire* OCR duration as a window to pick up the same
-    # "not yet tracked" document and OCR it again (see GitHub issue #23).
+    # multi-hundred-page PDF can take a long time. Claiming it first provides
+    # defense-in-depth against concurrent workers or poll cycles (see GitHub
+    # issue #23, whose reported duplicate execution was not conclusively
+    # reproduced).
     # Writing the tracking tag immediately shrinks that window down to a
     # single PATCH call. If OCR then fails, the claim is rolled back below
     # so the document is still retried on a later run.
@@ -554,8 +553,8 @@ def acquire_singleton_lock() -> None:
     ocr_worker.py starts in the same container while the first is still
     running, it will fail to acquire the lock here and exit immediately
     instead of silently running a second, identical poll loop alongside
-    the first -- which is what previously let every document get OCR'd
-    twice (see GitHub issue #23).
+    the first. This is preventive concurrency hardening for GitHub issue #23;
+    the reported duplicate execution was not conclusively reproduced.
     """
     global _singleton_lock_fh
     _singleton_lock_fh = open(_SINGLETON_LOCK_PATH, "a+")  # noqa: SIM115 - held for process lifetime
@@ -565,7 +564,7 @@ def acquire_singleton_lock() -> None:
         logger.critical(
             "Another instance of the OCR worker already appears to be running "
             "in this container (lock held on %s). Refusing to start a second "
-            "worker loop, which would OCR every document twice.",
+            "worker loop.",
             _SINGLETON_LOCK_PATH,
         )
         sys.exit(1)
