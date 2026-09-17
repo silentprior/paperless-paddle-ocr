@@ -371,6 +371,21 @@ def apply_tag(doc_id: int, current_tags: list[int], tag_id: int | None) -> list[
     return current_tags
 
 
+def remove_processing_tag(doc_id: int, current_tags: list[int], processing_tag_id: int | None) -> None:
+    if not processing_tag_id or processing_tag_id not in current_tags:
+        return
+
+    try:
+        cleanup_resp = SESSION.patch(
+            f"{Config.PAPERLESS_BASE_URL}/api/documents/{doc_id}/",
+            json={"tags": [tag_id for tag_id in current_tags if tag_id != processing_tag_id]},
+        )
+        cleanup_resp.raise_for_status()
+        logger.info("[DOC:%s] Removed processing tag after failed update", doc_id)
+    except requests.RequestException as exc:
+        logger.error("[DOC:%s] Failed to remove processing tag after failed update: %s", doc_id, exc)
+
+
 def process_document(doc: dict) -> None:
     doc_id = doc.get("id")
     if not doc_id:
@@ -493,6 +508,7 @@ def process_document(doc: dict) -> None:
         logger.info("[DOC:%s] Updated (chars=%d, tags=%s)", doc_id, len(extracted_text), sorted(final_tags))
     except requests.RequestException as exc:
         logger.error("[DOC:%s] Update failed: %s", doc_id, exc)
+        remove_processing_tag(doc_id, current_tags, processing_tag_id)
 
 
 # ---------------------------------------------------------------------------

@@ -157,6 +157,35 @@ def test_process_document_rolls_back_claim_on_ocr_failure(monkeypatch):
     cleanup_response.raise_for_status.assert_called_once()
 
 
+def test_process_document_removes_processing_tag_when_final_update_fails(monkeypatch):
+    ocr_worker._TAG_ID_CACHE.clear()
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", False)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_processed")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_OUTPUT_TAG", None)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_ERROR_TAG", None)
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", _tag_id_lookup)
+    monkeypatch.setattr(
+        ocr_worker.SESSION, "get", MagicMock(return_value=_mock_response(content=b"%PDF-fake"))
+    )
+    monkeypatch.setattr(ocr_worker, "extract_text", lambda *args: "hello world")
+
+    import requests
+
+    claim_response = _mock_response()
+    update_response = _mock_response()
+    update_response.raise_for_status.side_effect = requests.HTTPError("server error")
+    cleanup_response = _mock_response()
+    patch_mock = MagicMock(side_effect=[claim_response, update_response, cleanup_response])
+    monkeypatch.setattr(ocr_worker.SESSION, "patch", patch_mock)
+
+    ocr_worker.process_document({"id": 456, "title": "Update Error", "tags": []})
+
+    assert patch_mock.call_count == 3
+    assert patch_mock.call_args_list[2].kwargs["json"]["tags"] == []
+    cleanup_response.raise_for_status.assert_called_once()
+
+
 def test_process_document_aborts_before_ocr_if_claim_fails(monkeypatch):
     """If the pre-OCR claim PATCH itself fails, we must not proceed to run
     OCR at all -- otherwise we've lost the whole point of claiming first."""
