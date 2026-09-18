@@ -1,3 +1,5 @@
+import os
+
 import ocr_worker
 
 
@@ -36,3 +38,7 @@ def test_config_defaults_are_sane():
     assert ocr_worker.Config.OCR_ENGINE == "paddle"
     assert ocr_worker.Config.PAPERLESS_RUN_MODE == "daemon"
     assert ocr_worker.Config.PAPERLESS_HEALTH_PORT == 8080
+
+
+def test_paddlex_cache_uses_current_environment_variable():
+    assert os.environ["PADDLE_PDX_CACHE_HOME"] == str(ocr_worker.Config.OCR_CACHE_DIR / "paddlex")

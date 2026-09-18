@@ -138,7 +138,7 @@ class Config:
 # Point PaddleOCR/PaddleX/HF model caches at a writable, persistent dir
 # BEFORE paddleocr is imported anywhere below.
 Config.OCR_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-os.environ.setdefault("PADDLEX_HOME", str(Config.OCR_CACHE_DIR / "paddlex"))
+os.environ.setdefault("PADDLE_PDX_CACHE_HOME", str(Config.OCR_CACHE_DIR / "paddlex"))
 os.environ.setdefault("HF_HOME", str(Config.OCR_CACHE_DIR / "huggingface"))
 os.environ.setdefault("MODELSCOPE_CACHE", str(Config.OCR_CACHE_DIR / "modelscope"))
 # Skip the network connectivity probe PaddleX does on every startup.
