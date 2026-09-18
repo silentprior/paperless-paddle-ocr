@@ -210,3 +210,75 @@ def test_process_document_aborts_before_ocr_if_claim_fails(monkeypatch):
     ocr_worker.process_document(doc)
 
     extract_mock.assert_not_called()
+
+
+def test_process_document_caches_text_and_clears_it_on_success(monkeypatch, tmp_path):
+    """The extracted text should be cached before the update PATCH, and the
+    cache file removed once the update succeeds."""
+    ocr_worker._TAG_ID_CACHE.clear()
+    monkeypatch.setattr(ocr_worker, "OCR_RESULTS_CACHE_DIR", tmp_path)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", False)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_processed")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_OUTPUT_TAG", None)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_ERROR_TAG", None)
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", _tag_id_lookup)
+    monkeypatch.setattr(
+        ocr_worker.SESSION, "get", MagicMock(return_value=_mock_response(content=b"%PDF-fake"))
+    )
+    monkeypatch.setattr(ocr_worker, "extract_text", lambda *a, **k: "hello world")
+    monkeypatch.setattr(ocr_worker.SESSION, "patch", MagicMock(return_value=_mock_response()))
+
+    doc = {"id": 999, "title": "Cached Doc", "tags": [], "checksum": "abc123"}
+    ocr_worker.process_document(doc)
+
+    cache_path = tmp_path / "999-abc123.txt"
+    assert not cache_path.exists()
+
+
+def test_process_document_keeps_cache_and_reuses_on_update_failure(monkeypatch, tmp_path):
+    """A failed final update must keep the cached OCR text, and a later run
+    should reuse it instead of re-running OCR."""
+    ocr_worker._TAG_ID_CACHE.clear()
+    monkeypatch.setattr(ocr_worker, "OCR_RESULTS_CACHE_DIR", tmp_path)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", False)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSING_TAG", "paddle_processing")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_processed")
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_OUTPUT_TAG", None)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_ERROR_TAG", None)
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", _tag_id_lookup)
+    monkeypatch.setattr(
+        ocr_worker.SESSION, "get", MagicMock(return_value=_mock_response(content=b"%PDF-fake"))
+    )
+    extract_mock = MagicMock(return_value="hello world")
+    monkeypatch.setattr(ocr_worker, "extract_text", extract_mock)
+
+    import requests
+
+    claim_response = _mock_response()
+    update_response = _mock_response()
+    update_response.raise_for_status.side_effect = requests.HTTPError("bad request")
+    cleanup_response = _mock_response()
+    monkeypatch.setattr(
+        ocr_worker.SESSION,
+        "patch",
+        MagicMock(side_effect=[claim_response, update_response, cleanup_response]),
+    )
+
+    doc = {"id": 999, "title": "Cached Doc", "tags": [], "checksum": "abc123"}
+    ocr_worker.process_document(doc)
+
+    cache_path = tmp_path / "999-abc123.txt"
+    assert cache_path.read_text(encoding="utf-8") == "hello world"
+
+    # A second run should reuse the cached text instead of re-running OCR.
+    ocr_worker._TAG_ID_CACHE.clear()
+    monkeypatch.setattr(
+        ocr_worker.SESSION,
+        "patch",
+        MagicMock(side_effect=[_mock_response(), _mock_response()]),
+    )
+    ocr_worker.process_document(doc)
+
+    extract_mock.assert_called_once()
+

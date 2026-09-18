@@ -64,6 +64,10 @@ OCR_THREADS         CPU threads PaddleOCR should use (default: 4)
 OCR_CACHE_DIR       Where PaddleOCR/PaddleX model weights are downloaded to
                      and cached (default: /app/.paddle_cache). Mount this
                      as a volume so models survive container restarts.
+                     Extracted OCR text is also cached here (under
+                     results/) before a paperless update, so a failed
+                     update doesn't lose the OCR work — see
+                     docs/CONFIGURATION.md#troubleshooting.
 
 Logging
 --------
@@ -73,7 +77,9 @@ LOG_LEVEL           Python logging level (default: INFO)
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import io
+import json
 import logging
 import os
 import sys
@@ -143,6 +149,12 @@ os.environ.setdefault("HF_HOME", str(Config.OCR_CACHE_DIR / "huggingface"))
 os.environ.setdefault("MODELSCOPE_CACHE", str(Config.OCR_CACHE_DIR / "modelscope"))
 # Skip the network connectivity probe PaddleX does on every startup.
 os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
+
+# Extracted text is cached here before the PATCH to paperless, so a failed
+# update (e.g. an oversized payload rejected by Django) doesn't throw away
+# hours of OCR work — see docs/CONFIGURATION.md#troubleshooting.
+OCR_RESULTS_CACHE_DIR = Config.OCR_CACHE_DIR / "results"
+OCR_RESULTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 import pymupdf  # noqa: E402
 from paddleocr import PaddleOCR  # noqa: E402  (import order: after cache env vars are set)
@@ -371,6 +383,37 @@ def apply_tag(doc_id: int, current_tags: list[int], tag_id: int | None) -> list[
     return current_tags
 
 
+def _result_cache_path(doc_id: int, checksum: str) -> Path:
+    return OCR_RESULTS_CACHE_DIR / f"{doc_id}-{checksum}.txt"
+
+
+def _load_cached_text(doc_id: int, checksum: str) -> str | None:
+    cache_path = _result_cache_path(doc_id, checksum)
+    if not cache_path.is_file():
+        return None
+    try:
+        return cache_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        logger.warning("[DOC:%s] Failed to read cached OCR result %s: %s", doc_id, cache_path, exc)
+        return None
+
+
+def _save_cached_text(doc_id: int, checksum: str, text: str) -> None:
+    cache_path = _result_cache_path(doc_id, checksum)
+    try:
+        cache_path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        logger.warning("[DOC:%s] Failed to write cached OCR result %s: %s", doc_id, cache_path, exc)
+
+
+def _delete_cached_text(doc_id: int, checksum: str) -> None:
+    cache_path = _result_cache_path(doc_id, checksum)
+    try:
+        cache_path.unlink(missing_ok=True)
+    except OSError as exc:
+        logger.warning("[DOC:%s] Failed to remove cached OCR result %s: %s", doc_id, cache_path, exc)
+
+
 def remove_processing_tag(doc_id: int, current_tags: list[int], processing_tag_id: int | None) -> None:
     if not processing_tag_id or processing_tag_id not in current_tags:
         return
@@ -415,6 +458,7 @@ def process_document(doc: dict) -> None:
         logger.info("[DOC:%s] Skipping unsupported MIME type: %s", doc_id, mime_type)
         return
 
+    checksum = doc.get("checksum") or hashlib.sha256(file_content).hexdigest()
     current_tags = get_tag_ids_from_doc(doc)
 
     # Claim the document with a temporary processing tag *before* running OCR, not after. OCR on a large
@@ -447,32 +491,42 @@ def process_document(doc: dict) -> None:
                 )
                 return
 
-    try:
-        extracted_text = extract_text(file_content, mime_type)
-    except Exception as exc:  # noqa: BLE001 - one bad doc shouldn't kill the run
-        logger.error("[DOC:%s] OCR failed: %s", doc_id, exc, exc_info=True)
-        if not Config.PAPERLESS_DRY_RUN:
-            try:
-                updated_tags = set(current_tags)
-                if claimed and processing_tag_id:
-                    # Undo the provisional claim so the document is
-                    # retried on a future run instead of being treated as
-                    # permanently "done".
-                    updated_tags.discard(processing_tag_id)
-                if Config.PAPERLESS_ERROR_TAG:
-                    error_tag_id = get_or_create_tag_id(Config.PAPERLESS_ERROR_TAG)
-                    if error_tag_id:
-                        updated_tags.add(error_tag_id)
-                if updated_tags != set(current_tags):
-                    cleanup_resp = SESSION.patch(
-                        f"{Config.PAPERLESS_BASE_URL}/api/documents/{doc_id}/",
-                        json={"tags": sorted(updated_tags)},
-                    )
-                    cleanup_resp.raise_for_status()
-                    logger.info("[DOC:%s] Updated tags after failure -> %s", doc_id, sorted(updated_tags))
-            except Exception as tag_exc:  # noqa: BLE001
-                logger.error("[DOC:%s] Failed to update tags after failure: %s", doc_id, tag_exc)
-        return
+    cached_text = _load_cached_text(doc_id, checksum)
+    if cached_text is not None:
+        logger.info(
+            "[DOC:%s] Reusing cached OCR result from a previous failed update (%d chars)",
+            doc_id,
+            len(cached_text),
+        )
+        extracted_text = cached_text
+    else:
+        try:
+            extracted_text = extract_text(file_content, mime_type)
+            _save_cached_text(doc_id, checksum, extracted_text)
+        except Exception as exc:  # noqa: BLE001 - one bad doc shouldn't kill the run
+            logger.error("[DOC:%s] OCR failed: %s", doc_id, exc, exc_info=True)
+            if not Config.PAPERLESS_DRY_RUN:
+                try:
+                    updated_tags = set(current_tags)
+                    if claimed and processing_tag_id:
+                        # Undo the provisional claim so the document is
+                        # retried on a future run instead of being treated as
+                        # permanently "done".
+                        updated_tags.discard(processing_tag_id)
+                    if Config.PAPERLESS_ERROR_TAG:
+                        error_tag_id = get_or_create_tag_id(Config.PAPERLESS_ERROR_TAG)
+                        if error_tag_id:
+                            updated_tags.add(error_tag_id)
+                    if updated_tags != set(current_tags):
+                        cleanup_resp = SESSION.patch(
+                            f"{Config.PAPERLESS_BASE_URL}/api/documents/{doc_id}/",
+                            json={"tags": sorted(updated_tags)},
+                        )
+                        cleanup_resp.raise_for_status()
+                        logger.info("[DOC:%s] Updated tags after failure -> %s", doc_id, sorted(updated_tags))
+                except Exception as tag_exc:  # noqa: BLE001
+                    logger.error("[DOC:%s] Failed to update tags after failure: %s", doc_id, tag_exc)
+            return
 
     if not extracted_text:
         logger.warning("[DOC:%s] No text extracted (empty result)", doc_id)
@@ -499,14 +553,31 @@ def process_document(doc: dict) -> None:
         return
 
     try:
+        body = {"content": extracted_text, "tags": sorted(final_tags)}
+        payload = json.dumps(body).encode("utf-8")
+        logger.info("[DOC:%s] Updating content (%d bytes)", doc_id, len(payload))
         patch_resp = SESSION.patch(
             f"{Config.PAPERLESS_BASE_URL}/api/documents/{doc_id}/",
-            json={"content": extracted_text, "tags": sorted(final_tags)},
+            json=body,
         )
         patch_resp.raise_for_status()
         logger.info("[DOC:%s] Updated (chars=%d, tags=%s)", doc_id, len(extracted_text), sorted(final_tags))
+        _delete_cached_text(doc_id, checksum)
     except requests.RequestException as exc:
-        logger.error("[DOC:%s] Update failed: %s", doc_id, exc)
+        resp = getattr(exc, "response", None)
+        detail = resp.text[:500] if resp is not None else ""
+        logger.error(
+            "[DOC:%s] Update failed: %s | payload=%d bytes | response=%r",
+            doc_id, exc, len(payload), detail,
+        )
+        if resp is not None and resp.status_code in (400, 413) and len(payload) > 2_500_000:
+            logger.error(
+                "[DOC:%s] paperless-ngx rejected the update, likely because it exceeds Django's "
+                "default 2.5MB request body limit (DATA_UPLOAD_MAX_MEMORY_SIZE, configured on the "
+                "paperless-ngx side). See docs/CONFIGURATION.md#troubleshooting to raise it — the "
+                "OCR result has been cached and will be retried automatically on the next run.",
+                doc_id,
+            )
         remove_processing_tag(doc_id, current_tags, processing_tag_id)
 
 
