@@ -564,8 +564,8 @@ def process_document(doc: dict) -> None:
         logger.info("[DOC:%s] Updated (chars=%d, tags=%s)", doc_id, len(extracted_text), sorted(final_tags))
         _delete_cached_text(doc_id, checksum)
     except requests.RequestException as exc:
-        resp = getattr(exc, "response", None)
-        detail = resp.text[:500] if resp is not None else ""
+        err_resp = getattr(exc, "response", None)
+        detail = err_resp.text[:500] if err_resp is not None else ""
         logger.error(
             "[DOC:%s] Update failed: %s | payload=%d bytes | response=%r",
             doc_id,
@@ -573,7 +573,7 @@ def process_document(doc: dict) -> None:
             len(payload),
             detail,
         )
-        if resp is not None and resp.status_code in (400, 413) and len(payload) > 2_500_000:
+        if err_resp is not None and err_resp.status_code in (400, 413) and len(payload) > 2_500_000:
             logger.error(
                 "[DOC:%s] paperless-ngx rejected the update, likely because it exceeds Django's "
                 "default 2.5MB request body limit (DATA_UPLOAD_MAX_MEMORY_SIZE, configured on the "
