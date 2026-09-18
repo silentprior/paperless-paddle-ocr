@@ -568,7 +568,10 @@ def process_document(doc: dict) -> None:
         detail = resp.text[:500] if resp is not None else ""
         logger.error(
             "[DOC:%s] Update failed: %s | payload=%d bytes | response=%r",
-            doc_id, exc, len(payload), detail,
+            doc_id,
+            exc,
+            len(payload),
+            detail,
         )
         if resp is not None and resp.status_code in (400, 413) and len(payload) > 2_500_000:
             logger.error(

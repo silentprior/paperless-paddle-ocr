@@ -281,4 +281,3 @@ def test_process_document_keeps_cache_and_reuses_on_update_failure(monkeypatch, 
     ocr_worker.process_document(doc)
 
     extract_mock.assert_called_once()
-
