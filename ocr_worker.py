@@ -528,7 +528,11 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 
 def start_health_server() -> None:
-    server = HTTPServer(("0.0.0.0", Config.PAPERLESS_HEALTH_PORT), HealthHandler)
+    try:
+        server = DualStackHTTPServer(("::", Config.PAPERLESS_HEALTH_PORT), HealthHandler)
+    except OSError:
+        # IPv6 unavailable in this environment; fall back to IPv4-only.
+        server = HTTPServer(("0.0.0.0", Config.PAPERLESS_HEALTH_PORT), HealthHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     logger.info("Healthcheck server listening on port %d", Config.PAPERLESS_HEALTH_PORT)
