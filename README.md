@@ -84,6 +84,9 @@ All configuration is via environment variables. See
 [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for the full reference
 table, or the docstring at the top of [`ocr_worker.py`](ocr_worker.py).
 
+Having trouble with a large document failing to update after OCR? See
+[Troubleshooting](docs/CONFIGURATION.md#troubleshooting).
+
 Most commonly changed:
 
 | Variable | Default | Description |
