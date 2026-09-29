@@ -82,6 +82,7 @@ import io
 import json
 import logging
 import os
+import socket
 import sys
 import threading
 import time
@@ -601,11 +602,32 @@ class HealthHandler(BaseHTTPRequestHandler):
         pass
 
 
+class DualStackHTTPServer(HTTPServer):
+    """HTTPServer listening on IPv6 and IPv4 via one dual-stack socket."""
+
+    address_family = socket.AF_INET6
+
+    def server_bind(self) -> None:
+        # Explicitly allow IPv4-mapped connections on the IPv6 socket.
+        self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        super().server_bind()
+
+
 def start_health_server() -> None:
-    server = HTTPServer(("0.0.0.0", Config.PAPERLESS_HEALTH_PORT), HealthHandler)
+    """Start the /health endpoint on a daemon thread.
+
+    Prefers a dual-stack (IPv6 + IPv4) listener and falls back to IPv4-only
+    when IPv6 is unavailable (e.g. kernel booted with ipv6.disable=1).
+    """
+    try:
+        server: HTTPServer = DualStackHTTPServer(("::", Config.PAPERLESS_HEALTH_PORT), HealthHandler)
+        bind_desc = "[::] (dual-stack)"
+    except OSError:
+        server = HTTPServer(("0.0.0.0", Config.PAPERLESS_HEALTH_PORT), HealthHandler)
+        bind_desc = "0.0.0.0 (IPv4 only, IPv6 unavailable)"
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    logger.info("Healthcheck server listening on port %d", Config.PAPERLESS_HEALTH_PORT)
+    logger.info("Healthcheck server listening on %s port %d", bind_desc, Config.PAPERLESS_HEALTH_PORT)
 
 
 # ---------------------------------------------------------------------------
