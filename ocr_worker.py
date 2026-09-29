@@ -600,7 +600,8 @@ class HealthHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):  # noqa: A002 - silence per-request logs
         pass
-      
+
+
 class DualStackHTTPServer(HTTPServer):
     """HTTPServer listening on IPv6 and IPv4 via one dual-stack socket."""
 
@@ -610,6 +611,7 @@ class DualStackHTTPServer(HTTPServer):
         # Explicitly allow IPv4-mapped connections on the IPv6 socket.
         self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
         super().server_bind()
+
 
 def start_health_server() -> None:
     """Start the /health endpoint on a daemon thread.
