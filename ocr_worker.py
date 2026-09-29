@@ -620,7 +620,7 @@ def start_health_server() -> None:
     when IPv6 is unavailable (e.g. kernel booted with ipv6.disable=1).
     """
     try:
-        server = DualStackHTTPServer(("::", Config.PAPERLESS_HEALTH_PORT), HealthHandler)
+        server: HTTPServer = DualStackHTTPServer(("::", Config.PAPERLESS_HEALTH_PORT), HealthHandler)
         bind_desc = "[::] (dual-stack)"
     except OSError:
         server = HTTPServer(("0.0.0.0", Config.PAPERLESS_HEALTH_PORT), HealthHandler)
