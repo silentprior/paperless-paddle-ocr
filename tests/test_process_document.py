@@ -55,7 +55,7 @@ def test_process_document_skips_unsupported_mime(monkeypatch):
 def test_process_document_removes_input_tag_for_unsupported_mime(monkeypatch):
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", False)
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_INPUT_TAG", "to_ocr")
-    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", lambda name: 7 if name else None)
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", lambda name: 7 if name == "to_ocr" else None)
     monkeypatch.setattr(
         ocr_worker.SESSION,
         "get",
