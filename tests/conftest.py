@@ -19,10 +19,13 @@ on these stubs (see pyproject.toml for marker registration).
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 import tempfile
 import types
 from pathlib import Path
+
+import pytest
 
 # Make the repo root importable (ocr_worker.py lives at the repo root).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -56,3 +59,15 @@ if "pymupdf" not in sys.modules:
     _fake_pymupdf.Matrix = lambda *a, **k: None
     _fake_pymupdf.open = lambda *a, **k: None
     sys.modules["pymupdf"] = _fake_pymupdf
+
+
+@pytest.fixture(autouse=True)
+def _clear_ocr_results_cache():
+    """Wipe the on-disk OCR results cache so tests don't leak cached text
+    between each other (e.g. two tests using the same doc id/checksum)."""
+    import ocr_worker
+
+    shutil.rmtree(ocr_worker.OCR_RESULTS_CACHE_DIR, ignore_errors=True)
+    ocr_worker.OCR_RESULTS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    yield
+    shutil.rmtree(ocr_worker.OCR_RESULTS_CACHE_DIR, ignore_errors=True)

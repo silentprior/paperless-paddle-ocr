@@ -7,6 +7,21 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Extracted OCR text is now cached to `OCR_CACHE_DIR/results/` before the
+  paperless update, and reused on the next run instead of re-running OCR
+  if that update fails. A large document no longer loses hours of OCR
+  work to a single failed PATCH; the cache file is removed automatically
+  after a successful update.
+  ([#25](https://github.com/silentprior/paperless-paddle-ocr/issues/25))
+
+### Changed
+- Update failure logs now include the outgoing JSON payload size and a
+  pointer to the Django `DATA_UPLOAD_MAX_MEMORY_SIZE` limit when a large
+  document's update is rejected with a 400/413, instead of only logging
+  the (often unhelpful) response body.
+  ([#25](https://github.com/silentprior/paperless-paddle-ocr/issues/25))
+
 ### Fixed
 - Use PaddleX 3.x's `PADDLE_PDX_CACHE_HOME` environment variable so model
   downloads stay under `OCR_CACHE_DIR` and persist across one-shot runs.
