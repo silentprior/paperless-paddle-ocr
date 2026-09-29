@@ -443,6 +443,7 @@ def process_document(doc: dict) -> None:
         return
 
     logger.info("[DOC:%s] Starting processing: %s", doc_id, title)
+    input_tag_id = get_or_create_tag_id(Config.PAPERLESS_INPUT_TAG)
 
     download_url = f"{Config.PAPERLESS_BASE_URL}/api/documents/{doc_id}/download/"
     try:
@@ -457,6 +458,18 @@ def process_document(doc: dict) -> None:
 
     if mime_type not in OCR_MIME_TYPES:
         logger.info("[DOC:%s] Skipping unsupported MIME type: %s", doc_id, mime_type)
+        if input_tag_id and not Config.PAPERLESS_DRY_RUN:
+            current_tags = get_tag_ids_from_doc(doc)
+            if input_tag_id in current_tags:
+                try:
+                    cleanup_resp = SESSION.patch(
+                        f"{Config.PAPERLESS_BASE_URL}/api/documents/{doc_id}/",
+                        json={"tags": [tag_id for tag_id in current_tags if tag_id != input_tag_id]},
+                    )
+                    cleanup_resp.raise_for_status()
+                    logger.info("[DOC:%s] Removed input tag after unsupported MIME type", doc_id)
+                except requests.RequestException as exc:
+                    logger.error("[DOC:%s] Failed to remove input tag: %s", doc_id, exc)
         return
 
     checksum = doc.get("checksum") or hashlib.sha256(file_content).hexdigest()
@@ -539,6 +552,8 @@ def process_document(doc: dict) -> None:
     final_tags.discard(error_tag_id) if error_tag_id else None
     if processing_tag_id:
         final_tags.discard(processing_tag_id)
+    if input_tag_id:
+        final_tags.discard(input_tag_id)
     if tracking_tag_id:
         final_tags.add(tracking_tag_id)
     if output_tag_id:

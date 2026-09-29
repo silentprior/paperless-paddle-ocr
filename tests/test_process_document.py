@@ -52,6 +52,24 @@ def test_process_document_skips_unsupported_mime(monkeypatch):
     extract_mock.assert_not_called()
 
 
+def test_process_document_removes_input_tag_for_unsupported_mime(monkeypatch):
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_DRY_RUN", False)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_INPUT_TAG", "to_ocr")
+    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", lambda name: 7 if name else None)
+    monkeypatch.setattr(
+        ocr_worker.SESSION,
+        "get",
+        MagicMock(return_value=_mock_response(headers={"Content-Type": "text/plain"})),
+    )
+    patch_mock = MagicMock(return_value=_mock_response())
+    monkeypatch.setattr(ocr_worker.SESSION, "patch", patch_mock)
+
+    ocr_worker.process_document({"id": 456, "title": "Unsupported", "tags": [7, 8]})
+
+    patch_mock.assert_called_once()
+    assert patch_mock.call_args.kwargs["json"] == {"tags": [8]}
+
+
 def test_process_document_missing_id_is_noop(monkeypatch):
     get_mock = MagicMock()
     monkeypatch.setattr(ocr_worker.SESSION, "get", get_mock)
@@ -85,7 +103,12 @@ def test_process_document_claims_tracking_tag_before_ocr(monkeypatch):
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_PROCESSED_TAG", "paddle_processed")
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_OUTPUT_TAG", None)
     monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_ERROR_TAG", None)
-    monkeypatch.setattr(ocr_worker, "get_or_create_tag_id", _tag_id_lookup)
+    monkeypatch.setattr(ocr_worker.Config, "PAPERLESS_INPUT_TAG", "to_ocr")
+    monkeypatch.setattr(
+        ocr_worker,
+        "get_or_create_tag_id",
+        lambda name: 7 if name == "to_ocr" else _tag_id_lookup(name),
+    )
 
     monkeypatch.setattr(
         ocr_worker.SESSION, "get", MagicMock(return_value=_mock_response(content=b"%PDF-fake"))
@@ -104,14 +127,14 @@ def test_process_document_claims_tracking_tag_before_ocr(monkeypatch):
     monkeypatch.setattr(ocr_worker.SESSION, "patch", fake_patch)
     monkeypatch.setattr(ocr_worker, "extract_text", fake_extract_text)
 
-    doc = {"id": 123, "title": "Test Doc", "tags": []}
+    doc = {"id": 123, "title": "Test Doc", "tags": [7]}
     ocr_worker.process_document(doc)
 
     # The claim PATCH (carrying the tracking tag) must happen before OCR,
     # and OCR must be followed by the final content+tags PATCH.
     assert [step for step, _ in call_order] == ["patch", "extract", "patch"]
     claim_tags = call_order[0][1]
-    assert claim_tags == [11]
+    assert claim_tags == [7, 11]
     assert call_order[2][1] == [10]
 
 
