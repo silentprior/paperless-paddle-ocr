@@ -16,7 +16,7 @@ Set these in `docker-compose.yml`, a `docker run -e ...`, or your `.env` file
 
 | Variable | Default | Description |
 |---|---|---|
-| `PAPERLESS_INPUT_TAG` | *(none — all docs)* | Only process documents carrying this tag |
+| `PAPERLESS_INPUT_TAG` | *(none — all docs)* | Only process documents carrying this tag. Removed from a document once it has been processed, so re-apply it to OCR that document again |
 | `PAPERLESS_OUTPUT_TAG` | *(none)* | Tag applied after a successful OCR |
 | `PAPERLESS_ERROR_TAG` | *(none)* | Tag applied if OCR fails; removed automatically on a later success |
 | `PAPERLESS_PROCESSING_TAG` | `paddle_processing` | Temporary internal tag applied while a document is being OCR'd |

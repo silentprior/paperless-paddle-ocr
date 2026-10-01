@@ -23,7 +23,8 @@ PAPERLESS_VERIFY_SSL      Verify TLS certs ("true"/"false", default: true)
 
 Tagging / workflow
 -------------------
-PAPERLESS_INPUT_TAG       Only process documents with this tag (default: all)
+PAPERLESS_INPUT_TAG       Only process documents with this tag (default: all);
+                           removed once processed so re-apply to OCR again
 PAPERLESS_OUTPUT_TAG      Tag to apply after successful OCR (optional)
 PAPERLESS_ERROR_TAG       Tag to apply if OCR fails (optional)
 PAPERLESS_PROCESSING_TAG  Temporary tag used while a document is being OCR'd

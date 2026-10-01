@@ -7,25 +7,52 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-30
+
 ### Added
 - Extracted OCR text is now cached to `OCR_CACHE_DIR/results/` before the
   paperless update, and reused on the next run instead of re-running OCR
   if that update fails. A large document no longer loses hours of OCR
   work to a single failed PATCH; the cache file is removed automatically
   after a successful update.
-  ([#25](https://github.com/silentprior/paperless-paddle-ocr/issues/25))
+  ([#25](https://github.com/silentprior/paperless-paddle-ocr/issues/25),
+  [#30](https://github.com/silentprior/paperless-paddle-ocr/pull/30))
+- The `/health` endpoint now listens on a dual-stack IPv6 + IPv4 socket,
+  falling back to IPv4-only when IPv6 is unavailable, so it works in
+  IPv6-only environments. Thanks to @upmcplanetracker.
+  ([#31](https://github.com/silentprior/paperless-paddle-ocr/pull/31))
 
 ### Changed
+- `PAPERLESS_INPUT_TAG` is now removed from a document once it has been
+  processed (and when it is skipped for an unsupported MIME type), so
+  handled documents leave the input queue. To OCR a document again, re-apply
+  the input tag. No effect when `PAPERLESS_INPUT_TAG` is unset.
+  ([#26](https://github.com/silentprior/paperless-paddle-ocr/issues/26),
+  [#34](https://github.com/silentprior/paperless-paddle-ocr/pull/34))
 - Update failure logs now include the outgoing JSON payload size and a
   pointer to the Django `DATA_UPLOAD_MAX_MEMORY_SIZE` limit when a large
   document's update is rejected with a 400/413, instead of only logging
-  the (often unhelpful) response body.
-  ([#25](https://github.com/silentprior/paperless-paddle-ocr/issues/25))
+  the (often unhelpful) response body. See the Troubleshooting section
+  in `docs/CONFIGURATION.md`.
+  ([#25](https://github.com/silentprior/paperless-paddle-ocr/issues/25),
+  [#30](https://github.com/silentprior/paperless-paddle-ocr/pull/30))
+- Updated core and development dependencies:
+  - `pymupdf` updated to `>=1.28.2` ([#15](https://github.com/silentprior/paperless-paddle-ocr/pull/15))
+  - `mypy` updated to `>=2.3.1` ([#18](https://github.com/silentprior/paperless-paddle-ocr/pull/18))
+  - `ruff` updated to `>=0.16.9` ([#19](https://github.com/silentprior/paperless-paddle-ocr/pull/19))
+  - `pytest-mock` updated to `>=3.16.0` ([#17](https://github.com/silentprior/paperless-paddle-ocr/pull/17))
+  - `types-requests` updated to `>=2.33.0.20260906` ([#13](https://github.com/silentprior/paperless-paddle-ocr/pull/13))
+- Updated GitHub Actions workflow dependencies:
+  - `docker/setup-qemu-action` bumped from v3 to v4 ([#16](https://github.com/silentprior/paperless-paddle-ocr/pull/16))
+  - `docker/build-push-action` bumped from v6 to v7 ([#12](https://github.com/silentprior/paperless-paddle-ocr/pull/12))
+  - `actions/setup-python` bumped from v5 to v7 ([#14](https://github.com/silentprior/paperless-paddle-ocr/pull/14))
 
 ### Fixed
 - Use PaddleX 3.x's `PADDLE_PDX_CACHE_HOME` environment variable so model
   downloads stay under `OCR_CACHE_DIR` and persist across one-shot runs.
-  ([#27](https://github.com/silentprior/paperless-paddle-ocr/issues/27))
+  Thanks to @TayfurYldz.
+  ([#27](https://github.com/silentprior/paperless-paddle-ocr/issues/27),
+  [#28](https://github.com/silentprior/paperless-paddle-ocr/pull/28))
 
 ## [1.0.1] - 2026-09-17
 
@@ -59,6 +86,7 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - Replaced the deprecated `PaddleOCR.ocr()` call with `PaddleOCR.predict()`.
 - Replaced `pdf2image`/poppler-based PDF rendering with PyMuPDF.
 
-[Unreleased]: https://github.com/silentprior/paperless-paddle-ocr/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/silentprior/paperless-paddle-ocr/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/silentprior/paperless-paddle-ocr/releases/tag/v1.1.0
 [1.0.1]: https://github.com/silentprior/paperless-paddle-ocr/releases/tag/v1.0.1
 [1.0.0]: https://github.com/silentprior/paperless-paddle-ocr/releases/tag/v1.0.0
