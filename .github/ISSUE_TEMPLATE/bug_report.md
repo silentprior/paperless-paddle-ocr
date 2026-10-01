@@ -9,7 +9,7 @@ labels: bug
 A clear description of what's wrong.
 
 **Environment**
-- Image tag: (e.g. `1.0.0`, `latest`)
+- Image tag: (e.g. `1.1.0`, `latest`)
 - Host OS / arch: (e.g. Ubuntu 24.04, linux/amd64)
 - paperless-ngx version:
 - Relevant env vars (redact `PAPERLESS_API_TOKEN`!):

@@ -72,8 +72,8 @@ you configure and writes extracted text back into the document's content.
    the image directly
 5. Run PaddleOCR PP-OCRv6 over each page/image
 6. `PATCH` the document's `content` field in paperless-ngx with the
-  extracted text, remove the processing tag, and apply the processed/output
-  tag. On OCR failure, remove the processing tag and apply the error tag; on
+  extracted text, remove the processing tag and the input tag, and apply the
+  processed/output tag. On OCR failure, remove the processing tag and apply the error tag; on
   final-update failure, make a best-effort attempt to remove the processing tag.
 7. Sleep for `PAPERLESS_INTERVAL_SECONDS` and repeat (daemon mode), or exit
    (oneshot mode)

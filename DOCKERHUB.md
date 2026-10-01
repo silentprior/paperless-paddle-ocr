@@ -12,7 +12,7 @@ the paperless-ngx API.
 ## Supported tags
 
 - `latest` — most recent tagged release
-- `1.0.0`, `1.0`, `1` — semantic version tags (immutable per-patch tag recommended for production)
+- `1.1.0`, `1.1`, `1` — semantic version tags (immutable per-patch tag recommended for production)
 
 ## Quickstart
 
@@ -33,7 +33,7 @@ Or with Docker Compose — see the
 in the source repo.
 
 Tag any paperless-ngx document with your `PAPERLESS_INPUT_TAG` (default:
-`to_ocr`) and the worker will pick it up on its next poll.
+`to_ocr`) and the worker will pick it up on its next poll, removing the tag once processed.
 
 ## Key environment variables
 
@@ -41,7 +41,7 @@ Tag any paperless-ngx document with your `PAPERLESS_INPUT_TAG` (default:
 |---|---|---|
 | `PAPERLESS_BASE_URL` | *(required)* | URL of your paperless-ngx instance |
 | `PAPERLESS_API_TOKEN` | *(required)* | Paperless API token |
-| `PAPERLESS_INPUT_TAG` | *(none — all docs)* | Only process documents with this tag |
+| `PAPERLESS_INPUT_TAG` | *(none — all docs)* | Only process documents with this tag. Removed once processed |
 | `PAPERLESS_OUTPUT_TAG` | *(none)* | Tag applied after a successful OCR |
 | `PAPERLESS_ERROR_TAG` | *(none)* | Tag applied if OCR fails |
 | `PAPERLESS_PROCESSING_TAG` | `paddle_processing` | Temporary tag applied while a document is being OCR'd |
