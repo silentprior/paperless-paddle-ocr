@@ -1,5 +1,5 @@
 # Core
-requests>=2.32,<3
+requests>=2.34.2,<3
 numpy>=1.26,<2
 Pillow>=10.4
 
